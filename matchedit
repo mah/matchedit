@@ -1,0 +1,99 @@
+#!/usr/bin/perl
+##############################################################################
+# $Id:$
+# TODO: cmd line option for size of context presented
+# TODO: editor in $EDITOR
+# TODO: customize bracket structure
+# TODO: quoting of file names in grep call required
+#
+# 20000313 mah	first running version
+##############################################################################
+# Match Edit
+#
+# invocation:	
+#               matchedit.pl RE FILES
+#
+# description:
+#               allows editing of all contexts simultaneously in the FILES 
+#               matching the grep regular expression RE. Will make a
+#               backup for every file edited.
+#
+# THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS OR
+# IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
+# OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+# IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT,
+# INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
+# NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+# DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+# THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+# (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
+# THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+#
+##############################################################################
+
+$re = shift @ARGV;
+
+$FILE = "";
+open( IF, "grep -2 -n $re @ARGV /|" );	# / forces my grep version to always prefix filenames
+open( OF, "> .matchedit-$$" );
+while( <IF> ) {
+  last unless m/^(.*?)[:-](\d+?)[:-](.*)/;
+  $fn = $1;
+  $from = $to = $2;
+  $line = "$3\n";
+  if( $FILE eq "" ) {
+    print OF "FILE $fn\n"
+  } else {
+    print OF "FILEEND\nFILE $fn\n" unless $fn eq $FILE;
+  }
+  $FILE = $fn;
+  while( <IF> ) {
+    last if /^--/;
+    $to++;
+    m/^.*?[:-]\d+[:-](.*)/;
+    $line .= "$1\n";
+  }
+  print OF "LINES $from-$to\n${line}LINESEND\n";
+}
+print OF "FILEEND\n" unless $FILE eq "";
+close IF; close OF;
+
+system( "vim .matchedit-$$" );
+
+print "Answer YES if you want the changes to take effect: ";
+$choice = <STDIN>;
+
+if( $choice eq "YES\n" ) {
+  open( IF, "<.matchedit-$$" );
+  while( <IF> ) {
+    last unless m/^FILE (.*)/;
+    $fn = $1;
+    system( "mv $fn ${fn}.bak" );
+    open( PROCIF, "<${fn}.bak" );
+    open( OF, ">$fn" );
+    while( <IF> ) {
+      last unless m/^LINES (\d+)-(\d+)/;
+      $from = $1;
+      $to = $2;
+      tell PROCIF;	# to initialize $.
+      while( $. < $from - 1 ) {	# copy part before
+        $JUNK = <PROCIF>;
+        print OF $JUNK;
+      }
+      while( $. < $to ) {	# dummy read the part
+        <PROCIF>; 
+      }
+      while( <IF> ) { 	# paste in new lines
+	last if /^LINESEND/; 
+	print OF $_;
+      }
+      last if /^FILEEND/;
+    }
+    # must have read FILEEND on correct file structure
+    print OF <PROCIF>;	# copy rest of file
+    
+    close PROCIF;
+  }
+}
+
+system( "rm .matchedit-$$" );
