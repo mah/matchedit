@@ -1,23 +1,26 @@
 #!/usr/bin/perl
 ##############################################################################
-# $Id: matchedit.pl,v 1.1.1.1 2000/03/13 20:58:03 mah Exp $
-# TODO: cmd line option for size of context presented
-# TODO: editor in $EDITOR
-# TODO: customize bracket structure
-# TODO: quoting of file names in grep call required
+# $Id: matchedit.pl,v 1.2 2000/03/14 11:28:56 mah Exp $
+# TODO	editor in $EDITOR
+# TODO	customize bracket structure
+# TODO	quoting of file names in grep call required
 #
 # 20000313 mah	first running version
 # 20000314 mah	use egrep instead of grep
+# 20000314 mah	program exit on no match
+# 20000314 mah	cmd line option for size of context presented
 ##############################################################################
 # Match Edit
 #
 # invocation:	
-#               matchedit.pl RE FILES
+#               matchedit.pl [-CNTX] RE FILES
 #
 # description:
 #               allows editing of all contexts simultaneously in the FILES 
 #               matching the grep regular expression RE. Will make a
 #               backup for every file edited.
+#		The context size in lines before and ahead of the
+#		matching line is defined by CNTX. It defaults to 2.
 #
 # THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS OR
 # IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
@@ -32,10 +35,13 @@
 #
 ##############################################################################
 
-$re = shift @ARGV;
+$context = ($ARGV[0] =~ /^-\d$/ ? shift @ARGV : "-2" );
+
+$re = quotemeta( shift @ARGV );
 
 $FILE = "";
-open( IF, "egrep -2 -n $re @ARGV /|" );	# / forces my grep version to always prefix filenames
+open( IF, "egrep $context -n $re @ARGV /|" );	# '/' forces my grep to prefix filenames even on single file input
+die "Could not match anything" if eof( IF );
 open( OF, "> .matchedit-$$" );
 while( <IF> ) {
   last unless m/^(.*?)[:-](\d+?)[:-](.*)/;
