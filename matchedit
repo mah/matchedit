@@ -17,7 +17,7 @@ B<matchedit> lets you edit all the regions of the specified files which match th
 
 =head1 LOG
 
-  $Id: matchedit,v 1.8 2001/05/02 16:16:43 mah Exp $
+  $Id: matchedit,v 1.9 2003/02/06 11:19:28 mah Exp $
 
   20000313 mah	first running version
   20000314 mah	use egrep instead of grep
@@ -27,6 +27,7 @@ B<matchedit> lets you edit all the regions of the specified files which match th
   20030206 mah	editor in $EDITOR
   TODO	customize bracket structure
   TODO	quoting of file names in grep call required
+  TODO switch to a diff format and use patch to merge
 
 =head1 AUTHOR
 
