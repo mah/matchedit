@@ -1,24 +1,23 @@
 #!/usr/bin/perl
-# cat-bits: editingtool
 
 =head1 NAME
 
-matchedit.pl - edit regions of files which match a regular expression
+matchedit - edit regions of files which match a regular expression
 
 =head1 SYNOPSIS
 
-B<matchedit.pl>
+B<matchedit>
 [-I<CTNX>]
 I<RE>
 I<FILE>...
 
 =head1 DESCRIPTION
 
-B<matchedit.pl> lets you edit all the regions of the specified files which match the regular expression I<RE> simultaenously.
+B<matchedit> lets you edit all the regions of the specified files which match the regular expression I<RE> simultaenously.
 
 =head1 LOG
 
-  $Id: matchedit.pl,v 1.5 2001/01/15 11:35:17 mah Exp $
+  $Id: matchedit,v 1.7 2001/04/30 13:57:32 mah Exp $
 
   20000313 mah	first running version
   20000314 mah	use egrep instead of grep
