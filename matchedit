@@ -17,14 +17,14 @@ B<matchedit> lets you edit all the regions of the specified files which match th
 
 =head1 LOG
 
-  $Id: matchedit,v 1.7 2001/04/30 13:57:32 mah Exp $
+  $Id: matchedit,v 1.8 2001/05/02 16:16:43 mah Exp $
 
   20000313 mah	first running version
   20000314 mah	use egrep instead of grep
   20000314 mah	program exit on no match
   20000314 mah	cmd line option for size of context presented
   20010115 mah	added perldoc
-  TODO	editor in $EDITOR
+  20030206 mah	editor in $EDITOR
   TODO	customize bracket structure
   TODO	quoting of file names in grep call required
 
@@ -82,7 +82,9 @@ while( <IF> ) {
 print OF "FILEEND\n" unless $FILE eq "";
 close IF; close OF;
 
-system( "vim .matchedit-$$" );
+my $EDITOR = $ENV{EDITOR} || "vi";
+
+system( "$EDITOR .matchedit-$$" );
 
 print "Answer YES if you want the changes to take effect: ";
 $choice = <STDIN>;
