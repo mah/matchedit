@@ -1,12 +1,13 @@
 #!/usr/bin/perl
 ##############################################################################
-# $Id:$
+# $Id: matchedit.pl,v 1.1.1.1 2000/03/13 20:58:03 mah Exp $
 # TODO: cmd line option for size of context presented
 # TODO: editor in $EDITOR
 # TODO: customize bracket structure
 # TODO: quoting of file names in grep call required
 #
 # 20000313 mah	first running version
+# 20000314 mah	use egrep instead of grep
 ##############################################################################
 # Match Edit
 #
@@ -34,7 +35,7 @@
 $re = shift @ARGV;
 
 $FILE = "";
-open( IF, "grep -2 -n $re @ARGV /|" );	# / forces my grep version to always prefix filenames
+open( IF, "egrep -2 -n $re @ARGV /|" );	# / forces my grep version to always prefix filenames
 open( OF, "> .matchedit-$$" );
 while( <IF> ) {
   last unless m/^(.*?)[:-](\d+?)[:-](.*)/;
