@@ -1,4 +1,5 @@
 #!/usr/bin/perl
+# cat-bits: editingtool
 
 =head1 NAME
 
@@ -17,7 +18,7 @@ B<matchedit.pl> lets you edit all the regions of the specified files which match
 
 =head1 LOG
 
-  $Id: matchedit.pl,v 1.4 2000/04/23 17:38:05 mah Exp $
+  $Id: matchedit.pl,v 1.5 2001/01/15 11:35:17 mah Exp $
 
   20000313 mah	first running version
   20000314 mah	use egrep instead of grep
@@ -48,9 +49,9 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 =cut
 
 
-$context = ($ARGV[0] =~ /^-\d$/ ? shift @ARGV : "-2" );
+$context = ($ARGV[0] =~ /^-\d$/ ? shift : "-2" );
 
-$re = quotemeta( shift @ARGV );
+$re = quotemeta( shift );
 
 $FILE = "";
 open( IF, "egrep $context -d skip -n -Z $re @ARGV /|" );
