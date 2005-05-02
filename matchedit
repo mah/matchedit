@@ -1,6 +1,8 @@
 #!/usr/bin/perl
 # TODO option to read file names from STDIN
-# TODO perlify it - no more egrep dependencies...
+# TODO options to control generation of backups
+# TODO -S, --suffix=SUFFIX override the usual backup suffix ?
+# TODO guard against mis-escaped lines
 use File::Temp qw(tempfile);
 use Getopt::Long;
 use Pod::Usage;
@@ -10,57 +12,84 @@ pod2usage(1) if $options{help};
 $options{C} ||= 2;
 $options{editor} ||= $ENV{EDITOR} || 'vim';
 pod2usage "?Argument to --context must not be negative." if $options{C} < 0;
-$re = quotemeta shift @ARGV or pod2usage "?Missing regular expression.";
+$re = shift @ARGV or pod2usage "?Missing regular expression.";
+$re = qr/$re/o; # TODO right thing?
+@ARGV = grep { !m/\n/ or warn "!ignoring file `$_' with newline(s) in its name.\n" and 0 } @ARGV;
 pod2usage "?Missing file names." unless @ARGV;
-# possibly: @ARGV = glob("*") unless @ARGV;
-# possibly: @ARGV = grep { -f && -T } @ARGV;
 
-$FILE = "";
-open( IF, "egrep -C $options{C} -d skip -n -Z $re @ARGV /|" );
-	# the '/' at the end forces my grep to prefix filenames even on single file input
-	# the '-d skip' causes egrep to silently ignore the directory
-	# the -Z option causes filenames to be terminated by \0 which simplifies parsing
+($fh,$edits) = tempfile( 'matcheditXXXXX', DIR => File::Spec->tmpdir );
 
-die "?Could not match anything." if eof( IF );
-
-$edits = ".matchedit-$$";
-open( OF, ">$edits" );
-while( <IF> ) {
-	last unless m/^(.*?)\0(\d+?)[:-](.*)/;
-	$fn = $1;
-	$from = $to = $2;
-	$line = "$3\n";
-	if( $FILE eq "" ) {
-		print OF "FILE $fn\n"
-	} else {
-		print OF "FILEEND\nFILE $fn\n" unless $fn eq $FILE;
-	}
-	$FILE = $fn;
-	while( <IF> ) {
-		last if /^--/;
-		$to++;
-		m/^.*?\0\d+[:-](.*)/;
-		$line .= "$1\n";
-	}
-	print OF "LINES $from-$to\n${line}LINESEND\n";
+sub process_hit {
+	# $HIT[0] is line $first
+	# $HIT[$lasthit-$first] is line $lasthit
+	# $HIT[$lasthit-$first+$options{C}$ is line $lasthit+$options{C}
+	# we have to print the lines from $first to ($lasthit+$options{C}), possibly less if at end of file
+	my $lastidx = $lasthit-$first+$options{C};
+	$anyhit = 1;
+	$lastidx = $#HIT if $lastidx > $#HIT;
+	my $last = $first+$lastidx;
+	print $fh "LINES $first-$last\n", splice( @HIT,0,$lastidx+1 ), "LINESEND\n";
+	$lasthit = undef;
+	# $first is updated in main program...
 }
-print OF "FILEEND\n" unless $FILE eq "";
-close IF; close OF;
+
+while (<>) {
+	if ($.==1) {
+		process_hit if $lasthit;
+		print $fh "FILEEND\n" if $fileheader;
+		@HIT = ();
+		$fileheader = 0;
+		$first = 1; # first line collected in @HIT will have number 1
+	}
+	push @HIT, $_; # collect
+	if( /$re/ ) {
+		$lasthit = $.;
+		unless( $fileheader ) {
+			print $fh "FILE $ARGV\n";
+			$fileheader = 1;
+		};
+	}
+	if( $lasthit ) {
+		# running hit
+		if( $.-$lasthit > 2*$options{C} ) {
+			# we now have 2*$options{C}+1 intervening lines between last hit and current line
+			process_hit;
+			shift @HIT; # throw away one more, then we still have $options{C} lines of leading context
+			$first = $.-$options{C}+1;
+		}
+	} elsif( @HIT > $options{C} ) {
+		# throw one line away
+		shift @HIT;
+		$first++;
+	}
+} continue {
+	close ARGV if eof; # reset $.
+}
+
+process_hit if $lasthit;
+print $fh "FILEEND\n" if $fileheader;
+
+unless( $anyhit ) {
+	close $fh;
+	unlink $edits;
+	die "!No matching file.\n";
+}
 
 system $options{editor}, $edits;
 
+# TODO check time stamp if there was any modification at all
 print "Answer YES if you want the changes to take effect: ";
 $choice = <STDIN>;
 
 if( $choice eq "YES\n" ) {
-	open( IF, "<$edits" );
-	while( <IF> ) {
+	seek $fh, 0, SEEK_SET; # start over
+	while( <$fh> ) {
 		last unless m/^FILE (.*)/;
 		$fn = $1;
-		system( "mv $fn ${fn}.bak" );
-		open( PROCIF, "<${fn}.bak" );
+		system( "mv $fn $fn.bak" );
+		open( PROCIF, "<$fn.bak" );
 		open( OF, ">$fn" );
-		while( <IF> ) {
+		while( <$fh> ) {
 			last unless m/^LINES (\d+)-(\d+)/;
 			$from = $1;
 			$to = $2;
@@ -71,7 +100,7 @@ if( $choice eq "YES\n" ) {
 			while( $. < $to ) {	# dummy read the part
 				<PROCIF>; 
 			}
-			while( <IF> ) { 	# paste in new lines
+			while( <$fh> ) { 	# paste in new lines
 				last if /^LINESEND/; 
 				print OF $_;
 			}
@@ -84,12 +113,13 @@ if( $choice eq "YES\n" ) {
 	}
 }
 
+close $fh;
 unlink $edits;
 
 __END__
 =head1 NAME
 
-matchedit - edit regions of files that match a regular expression
+matchedit - edit regions of files that match a (Perl) regular expression
 
 =head1 SYNOPSIS
 
@@ -101,7 +131,7 @@ I<file>...
 
 =head1 DESCRIPTION
 
-B<matchedit> allows you to edit the regions of the specified files that match the regular expression I<regexp>.
+B<matchedit> allows you to edit the regions of the specified files that match the (Perl) regular expression I<regexp>.
 
 =head1 OPTIONS
 
