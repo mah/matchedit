@@ -1,60 +1,19 @@
 #!/usr/bin/perl
+# TODO option to read file names from STDIN
+use File::Temp qw(tempfile);
+use Getopt::Long;
+use Pod::Usage;
 
-=head1 NAME
-
-matchedit - edit regions of files which match a regular expression
-
-=head1 SYNOPSIS
-
-B<matchedit>
-[-I<CTNX>]
-I<RE>
-I<FILE>...
-
-=head1 DESCRIPTION
-
-B<matchedit> lets you edit all the regions of the specified files which match the regular expression I<RE> simultaenously.
-
-=head1 LOG
-
-  $Id: matchedit,v 1.9 2003/02/06 11:19:28 mah Exp $
-
-  20000313 mah	first running version
-  20000314 mah	use egrep instead of grep
-  20000314 mah	program exit on no match
-  20000314 mah	cmd line option for size of context presented
-  20010115 mah	added perldoc
-  20030206 mah	editor in $EDITOR
-  TODO	customize bracket structure
-  TODO	quoting of file names in grep call required
-  TODO switch to a diff format and use patch to merge
-
-=head1 AUTHOR
-
-Mark A. Hillebrand <mah@wjpserver.cs.uni-sb.de>
-
-=head1 LEGAL
-
-THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS OR
-IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
-OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
-IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT,
-INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
-NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
-DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
-THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
-THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
-=cut
-
-
-$context = ($ARGV[0] =~ /^-\d$/ ? shift @ARGV : "-2" );
-
-$re = quotemeta( shift @ARGV );
+GetOptions(\%options, qw( C|context=i editor=s help|h|? )) or pod2usage(2);
+pod2usage(1) if $options{help};
+$options{C} ||= 2;
+$options{editor} ||= $ENV{EDITOR} || 'vim';
+pod2usage "?Argument to --context must not be negative." if $options{C} < 0;
+$re = quotemeta shift @ARGV or pod2usage "?Missing regular expression.";
+pod2usage "?Missing file names." unless @ARGV;
 
 $FILE = "";
-open( IF, "egrep $context -d skip -n -Z $re @ARGV /|" );
+open( IF, "egrep -C $options{C} -d skip -n -Z $re @ARGV /|" );
 	# the '/' at the end forces my grep to prefix filenames even on single file input
 	# the '-d skip' causes egrep to silently ignore the directory
 	# the -Z option causes filenames to be terminated by \0 which simplifies parsing
@@ -123,3 +82,41 @@ close PROCIF;
 }
 
 system( "rm .matchedit-$$" );
+__END__
+=head1 NAME
+
+matchedit - edit regions of files that match a regular expression
+
+=head1 SYNOPSIS
+
+B<matchedit>
+[B<--context> I<num>]
+[B<--editor> I<editor>]
+I<regexp>
+I<file>...
+
+=head1 DESCRIPTION
+
+B<matchedit> allows you to edit the regions of the specified files that match the regular expression I<regexp>.
+
+=head1 OPTIONS
+
+=over 4
+
+=item B<--context> I<num>, B<-C> I<num>
+
+Print I<num> lines of context before and after each match.
+
+=item B<--editor> I<editor>
+
+Use I<editor> to edit the matches.
+If this option is not given the editor defaults to the one specified with environment variable I<EDITOR> or vim.
+
+=back
+
+=head1 COPYRIGHT
+
+(C) 2000-2005 Mark Hillebrand <mah at cs.uni-sb.de>.
+
+This code is released under the BSD License.
+Before using this software, visit L<http://www.opensource.org/licenses/bsd-license.php> for the full license text.
