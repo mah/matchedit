@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 # TODO option to read file names from STDIN
+# TODO perlify it - no more egrep dependencies...
 use File::Temp qw(tempfile);
 use Getopt::Long;
 use Pod::Usage;
@@ -11,6 +12,8 @@ $options{editor} ||= $ENV{EDITOR} || 'vim';
 pod2usage "?Argument to --context must not be negative." if $options{C} < 0;
 $re = quotemeta shift @ARGV or pod2usage "?Missing regular expression.";
 pod2usage "?Missing file names." unless @ARGV;
+# possibly: @ARGV = glob("*") unless @ARGV;
+# possibly: @ARGV = grep { -f && -T } @ARGV;
 
 $FILE = "";
 open( IF, "egrep -C $options{C} -d skip -n -Z $re @ARGV /|" );
@@ -18,8 +21,10 @@ open( IF, "egrep -C $options{C} -d skip -n -Z $re @ARGV /|" );
 	# the '-d skip' causes egrep to silently ignore the directory
 	# the -Z option causes filenames to be terminated by \0 which simplifies parsing
 
-die "Could not match anything" if eof( IF );
-open( OF, "> .matchedit-$$" );
+die "?Could not match anything." if eof( IF );
+
+$edits = ".matchedit-$$";
+open( OF, ">$edits" );
 while( <IF> ) {
 	last unless m/^(.*?)\0(\d+?)[:-](.*)/;
 	$fn = $1;
@@ -42,15 +47,13 @@ while( <IF> ) {
 print OF "FILEEND\n" unless $FILE eq "";
 close IF; close OF;
 
-my $EDITOR = $ENV{EDITOR} || "vi";
-
-system( "$EDITOR .matchedit-$$" );
+system $options{editor}, $edits;
 
 print "Answer YES if you want the changes to take effect: ";
 $choice = <STDIN>;
 
 if( $choice eq "YES\n" ) {
-	open( IF, "<.matchedit-$$" );
+	open( IF, "<$edits" );
 	while( <IF> ) {
 		last unless m/^FILE (.*)/;
 		$fn = $1;
@@ -63,25 +66,26 @@ if( $choice eq "YES\n" ) {
 			$to = $2;
 			tell PROCIF;	# to initialize $.
 			while( $. < $from - 1 ) {	# copy part before
-			print OF scalar <PROCIF>;
+				print OF scalar <PROCIF>;
+			}
+			while( $. < $to ) {	# dummy read the part
+				<PROCIF>; 
+			}
+			while( <IF> ) { 	# paste in new lines
+				last if /^LINESEND/; 
+				print OF $_;
+			}
+			last if /^FILEEND/;
 		}
-		while( $. < $to ) {	# dummy read the part
-		<PROCIF>; 
-	}
-	while( <IF> ) { 	# paste in new lines
-	last if /^LINESEND/; 
-	print OF $_;
-}
-last if /^FILEEND/;
-}
 # must have read FILEEND on correct file structure
-print OF <PROCIF>;	# copy rest of file
+		print OF <PROCIF>;	# copy rest of file
 
-close PROCIF;
-}
+		close PROCIF;
+	}
 }
 
-system( "rm .matchedit-$$" );
+unlink $edits;
+
 __END__
 =head1 NAME
 
