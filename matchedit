@@ -117,9 +117,10 @@ close $fh;
 unlink $edits;
 
 __END__
+
 =head1 NAME
 
-matchedit - edit regions of files that match a (Perl) regular expression
+matchedit - edit regions of files that match a (Perl) regular expression in a single session
 
 =head1 SYNOPSIS
 
@@ -147,6 +148,13 @@ Use I<editor> to edit the matches.
 If this option is not given the editor defaults to the one specified with environment variable I<EDITOR> or vim.
 
 =back
+
+=head1 BUGS AND CAVEATS
+
+The markup of the file holding the matches is neither nice nor fool-proof.
+This means that your edited section may contain markup that confuses this script.
+This is not guarded against (yet), but for each changed file the script
+generates a backup copy, so in case of unexpected trouble you may recover.
 
 =head1 COPYRIGHT
 
