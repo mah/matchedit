@@ -33,12 +33,14 @@ sub process_hit {
 	$anyhit = 1;
 	$lastidx = $#HIT if $lastidx > $#HIT;
 	my $last = $first+$lastidx;
-	print $fh "LINES $first-$last\n", splice( @HIT,0,$lastidx+1 ), "LINESEND\n";
+	local $, = "\n"; # output field separator
+	print $fh "LINES $first-$last", splice( @HIT,0,$lastidx+1 ), "LINESEND\n";
 	$lasthit = undef;
 	# $first is updated in main program...
 }
 
 while (<>) {
+	chomp;
 	if ($.==1) {
 		process_hit if $lasthit;
 		print $fh "FILEEND\n" if $fileheader;
