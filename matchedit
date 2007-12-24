@@ -81,9 +81,12 @@ unless( $anyhit ) {
 	die "!No matching file.\n";
 }
 
-system $options{editor}, $edits;
+my ($at,$mt) = ((stat($edits))[8],(stat($edits))[9]);  # save access and modification times
+system( $options{editor}, $edits )==0
+	or unlink $edits and die "?Executing `$options{editor} $edits' failed: $? ($!)\n";
+unlink $edits and die "Access and modification times of `$edits' unchanged, nothing to do.\n"
+	if $at==(stat($edits))[8] and $mt== (stat($edits))[9];
 
-# TODO check time stamp if there was any modification at all
 print "Answer YES if you want the changes to take effect: ";
 $choice = <STDIN>;
 
@@ -94,8 +97,8 @@ if( $choice eq "YES\n" ) {
 		last unless m/^FILE (.*)/;
 		$fn = $1;
 		rename( $fn, "$fn.bak" );
-		open( PROCIF, "<$fn.bak" );
-		open( OF, ">$fn" );
+		open( PROCIF, '<', "$fn.bak" );
+		open( OF, '>', $fn );
 		while( <$fh> ) {
 			last unless m/^LINES (\d+)-(\d+)/;
 			$from = $1;
