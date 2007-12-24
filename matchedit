@@ -7,8 +7,7 @@
 # TODO guard against mis-escaped lines
 # TODO check the meta data signature...
 # TODO Fix newline at EOF bug
-# TODO Guard against multiple hits in same file
-# TODO fix the Mac OS 'bug'
+# TODO guard against same file being specified multiple times
 use File::Temp qw(tempfile);
 use Getopt::Long;
 use Pod::Usage;
@@ -75,8 +74,8 @@ while (<>) {
 process_hit if $lasthit;
 print $fh "FILEEND\n" if $fileheader;
 
+close $fh;
 unless( $anyhit ) {
-	close $fh;
 	unlink $edits;
 	die "!No matching file.\n";
 }
@@ -88,11 +87,12 @@ print "Answer YES if you want the changes to take effect: ";
 $choice = <STDIN>;
 
 if( $choice eq "YES\n" ) {
-	seek $fh, 0, SEEK_SET; # start over
+	open( $fh, '<', $edits )
+		or die "?Failed to reopen `$edits'\n";
 	while( <$fh> ) {
 		last unless m/^FILE (.*)/;
 		$fn = $1;
-		system( "mv $fn $fn.bak" );
+		system( "mv $fn $fn.bak" ); # TODO fixme
 		open( PROCIF, "<$fn.bak" );
 		open( OF, ">$fn" );
 		while( <$fh> ) {
