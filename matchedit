@@ -15,8 +15,7 @@ use Pod::Usage;
 
 GetOptions(\%options, qw( C|context=i editor=s help|h|? )) or pod2usage(2);
 pod2usage(1) if $options{help};
-$options{C} ||= 2;
-# TODO -C 0 not possible!
+$options{C} = 2 if not exists $options{C};
 $options{editor} ||= $ENV{EDITOR} || 'vim';
 pod2usage "?Argument to --context must not be negative." if $options{C} < 0;
 $re = shift @ARGV or pod2usage "?Missing regular expression.";
