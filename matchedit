@@ -92,7 +92,7 @@ if( $choice eq "YES\n" ) {
 	while( <$fh> ) {
 		last unless m/^FILE (.*)/;
 		$fn = $1;
-		system( "mv $fn $fn.bak" ); # TODO fixme
+		rename( $fn, "$fn.bak" );
 		open( PROCIF, "<$fn.bak" );
 		open( OF, ">$fn" );
 		while( <$fh> ) {
