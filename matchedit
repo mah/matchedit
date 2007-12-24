@@ -6,7 +6,6 @@
 # TODO -S, --suffix=SUFFIX override the usual backup suffix ?
 # TODO guard against mis-escaped lines
 # TODO check the meta data signature...
-# TODO Fix newline at EOF bug
 # TODO guard against same file being specified multiple times
 use File::Temp qw(tempfile);
 use Getopt::Long;
