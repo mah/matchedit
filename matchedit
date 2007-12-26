@@ -1,27 +1,33 @@
 #!/usr/bin/perl
-# TODO switch to strict and maybe -w
-# TODO load time stamps to check whether file has been modified in the mean time
 # TODO option to read file names from STDIN
 # TODO options to control generation of backups
 # TODO -S, --suffix=SUFFIX override the usual backup suffix ?
 # TODO guard against mis-escaped lines
 # TODO check the meta data signature...
 # TODO guard against same file being specified multiple times
+use warnings;
+use strict;
 use File::Temp qw(tempfile);
 use Getopt::Long;
 use Pod::Usage;
 
+my %options = (
+	C => 2,
+	editor => $ENV{EDITOR} || 'vim',
+);
 GetOptions(\%options, qw( C|context=i editor=s help|h|? )) or pod2usage(2);
 pod2usage(1) if $options{help};
-$options{C} = 2 if not exists $options{C};
-$options{editor} ||= $ENV{EDITOR} || 'vim';
 pod2usage "?Argument to --context must not be negative." if $options{C} < 0;
-$re = shift @ARGV or pod2usage "?Missing regular expression.";
+my $re = shift @ARGV or pod2usage "?Missing regular expression.";
 $re = qr/$re/o; # TODO right thing?
 @ARGV = grep { !m/\n/ or warn "!ignoring file `$_' with newline(s) in its name.\n" and 0 } @ARGV;
 pod2usage "?Missing file names." unless @ARGV;
 
-($fh,$edits) = tempfile( 'matcheditXXXXX', DIR => File::Spec->tmpdir );
+my ($fh,$edits) = tempfile( 'matcheditXXXXX', DIR => File::Spec->tmpdir );
+
+my @HIT; # context lines
+my ($first,$lasthit); # first line in context, line with hit
+my $anyhit; # 1 if any hit has been seen
 
 sub process_hit {
 	# $HIT[0] is line $first
@@ -37,6 +43,8 @@ sub process_hit {
 	$lasthit = undef;
 	# $first is updated in main program...
 }
+
+my $fileheader; # 1 if header for a specific file has been printed
 
 while (<>) {
 	chomp;
@@ -88,22 +96,22 @@ unlink $edits and die "Access and modification times of `$edits' unchanged, noth
 	if $at==(stat($edits))[8] and $mt== (stat($edits))[9];
 
 print "Answer YES if you want the changes to take effect: ";
-$choice = <STDIN>;
+my $choice = <STDIN>;
 
 if( $choice eq "YES\n" ) {
 	open( $fh, '<', $edits )
 		or die "?Failed to reopen `$edits'\n";
 	while( <$fh> ) {
 		last unless m/^FILE (.*)/;
-		$fn = $1;
+		my $fn = $1;
 		rename( $fn, "$fn.bak" );
 		open( PROCIF, '<', "$fn.bak" );
 		open( OF, '>', $fn );
 		while( <$fh> ) {
 			last unless m/^LINES (\d+)-(\d+)/;
-			$from = $1;
-			$to = $2;
-			tell PROCIF;	# to initialize $.
+			my $from = $1;
+			my $to = $2;
+			my $discard = tell PROCIF;	# to initialize $.
 			while( $. < $from - 1 ) {	# copy part before
 				print OF scalar <PROCIF>;
 			}
@@ -151,6 +159,7 @@ B<matchedit> allows you to edit the regions of the specified files that match th
 =item B<--context> I<num>, B<-C> I<num>
 
 Print I<num> lines of context before and after each match.
+Default is 2.
 
 =item B<--editor> I<editor>
 
