@@ -12,8 +12,8 @@ use Getopt::Long;
 use Pod::Usage;
 
 my %options = (
-	C => 2,
-	editor => $ENV{EDITOR} || 'vim',
+    C => 2,
+    editor => $ENV{EDITOR} || 'vim',
 );
 GetOptions(\%options, qw( C|context=i editor=s help|h|? )) or pod2usage(2);
 pod2usage(1) if $options{help};
@@ -30,54 +30,54 @@ my ($first,$lasthit); # first line in context, line with hit
 my $anyhit; # 1 if any hit has been seen
 
 sub process_hit {
-	# $HIT[0] is line $first
-	# $HIT[$lasthit-$first] is line $lasthit
-	# $HIT[$lasthit-$first+$options{C}$ is line $lasthit+$options{C}
-	# we have to print the lines from $first to ($lasthit+$options{C}), possibly less if at end of file
-	my $lastidx = $lasthit-$first+$options{C};
-	$anyhit = 1;
-	$lastidx = $#HIT if $lastidx > $#HIT;
-	my $last = $first+$lastidx;
-	local $, = "\n"; # output field separator
-	print $fh "LINES $first-$last", splice( @HIT,0,$lastidx+1 ), "LINESEND\n";
-	$lasthit = undef;
-	# $first is updated in main program...
+    # $HIT[0] is line $first
+    # $HIT[$lasthit-$first] is line $lasthit
+    # $HIT[$lasthit-$first+$options{C}$ is line $lasthit+$options{C}
+    # we have to print the lines from $first to ($lasthit+$options{C}), possibly less if at end of file
+    my $lastidx = $lasthit-$first+$options{C};
+    $anyhit = 1;
+    $lastidx = $#HIT if $lastidx > $#HIT;
+    my $last = $first+$lastidx;
+    local $, = "\n"; # output field separator
+    print $fh "LINES $first-$last", splice( @HIT,0,$lastidx+1 ), "LINESEND\n";
+    $lasthit = undef;
+    # $first is updated in main program...
 }
 
 my $fileheader; # 1 if header for a specific file has been printed
 
 while (<>) {
-	chomp;
-	if ($.==1) {
-		process_hit if $lasthit;
-		print $fh "FILEEND\n" if $fileheader;
-		@HIT = ();
-		$fileheader = 0;
-		$first = 1; # first line collected in @HIT will have number 1
-	}
-	push @HIT, $_; # collect
-	if( /$re/ ) {
-		$lasthit = $.;
-		unless( $fileheader ) {
-			print $fh "FILE $ARGV\n";
-			$fileheader = 1;
-		};
-	}
-	if( $lasthit ) {
-		# running hit
-		if( $.-$lasthit > 2*$options{C} ) {
-			# we now have 2*$options{C}+1 intervening lines between last hit and current line
-			process_hit;
-			shift @HIT; # throw away one more, then we still have $options{C} lines of leading context
-			$first = $.-$options{C}+1;
-		}
-	} elsif( @HIT > $options{C} ) {
-		# throw one line away
-		shift @HIT;
-		$first++;
-	}
+    chomp;
+    if ($.==1) {
+        process_hit if $lasthit;
+        print $fh "FILEEND\n" if $fileheader;
+        @HIT = ();
+        $fileheader = 0;
+        $first = 1; # first line collected in @HIT will have number 1
+    }
+    push @HIT, $_; # collect
+    if( /$re/ ) {
+        $lasthit = $.;
+        unless( $fileheader ) {
+            print $fh "FILE $ARGV\n";
+            $fileheader = 1;
+        };
+    }
+    if( $lasthit ) {
+        # running hit
+        if( $.-$lasthit > 2*$options{C} ) {
+            # we now have 2*$options{C}+1 intervening lines between last hit and current line
+            process_hit;
+            shift @HIT; # throw away one more, then we still have $options{C} lines of leading context
+            $first = $.-$options{C}+1;
+        }
+    } elsif( @HIT > $options{C} ) {
+        # throw one line away
+        shift @HIT;
+        $first++;
+    }
 } continue {
-	close ARGV if eof; # reset $.
+    close ARGV if eof; # reset $.
 }
 
 process_hit if $lasthit;
@@ -85,50 +85,50 @@ print $fh "FILEEND\n" if $fileheader;
 
 close $fh;
 unless( $anyhit ) {
-	unlink $edits;
-	die "!No matching file.\n";
+    unlink $edits;
+    die "!No matching file.\n";
 }
 
 my ($at,$mt) = ((stat($edits))[8],(stat($edits))[9]);  # save access and modification times
 system( $options{editor}, $edits )==0
-	or unlink $edits and die "?Executing `$options{editor} $edits' failed: $? ($!)\n";
+    or unlink $edits and die "?Executing `$options{editor} $edits' failed: $? ($!)\n";
 unlink $edits and die "Access and modification times of `$edits' unchanged, nothing to do.\n"
-	if $at==(stat($edits))[8] and $mt== (stat($edits))[9];
+    if $at==(stat($edits))[8] and $mt== (stat($edits))[9];
 
 print "Answer YES if you want the changes to take effect: ";
 my $choice = <STDIN>;
 
 if( $choice eq "YES\n" ) {
-	open( $fh, '<', $edits )
-		or die "?Failed to reopen `$edits'\n";
-	while( <$fh> ) {
-		last unless m/^FILE (.*)/;
-		my $fn = $1;
-		rename( $fn, "$fn.bak" );
-		open( PROCIF, '<', "$fn.bak" );
-		open( OF, '>', $fn );
-		while( <$fh> ) {
-			last unless m/^LINES (\d+)-(\d+)/;
-			my $from = $1;
-			my $to = $2;
-			my $discard = tell PROCIF;	# to initialize $.
-			while( $. < $from - 1 ) {	# copy part before
-				print OF scalar <PROCIF>;
-			}
-			while( $. < $to ) {	# dummy read the part
-				<PROCIF>; 
-			}
-			while( <$fh> ) { 	# paste in new lines
-				last if /^LINESEND/;
-				print OF $_;
-			}
-			last if /^FILEEND/;
-		}
-# must have read FILEEND on correct file structure
-		print OF <PROCIF>;	# copy rest of file
+    open( $fh, '<', $edits )
+        or die "?Failed to reopen `$edits'\n";
+    while( <$fh> ) {
+        last unless m/^FILE (.*)/;
+        my $fn = $1;
+        rename( $fn, "$fn.bak" );
+        open( PROCIF, '<', "$fn.bak" );
+        open( OF, '>', $fn );
+        while( <$fh> ) {
+            last unless m/^LINES (\d+)-(\d+)/;
+            my $from = $1;
+            my $to = $2;
+            my $discard = tell PROCIF;    # to initialize $.
+            while( $. < $from - 1 ) {    # copy part before
+                print OF scalar <PROCIF>;
+            }
+            while( $. < $to ) {    # dummy read the part
+                <PROCIF>;
+            }
+            while( <$fh> ) {     # paste in new lines
+                last if /^LINESEND/;
+                print OF $_;
+            }
+            last if /^FILEEND/;
+        }
+		# must have read FILEEND on correct file structure
+        print OF <PROCIF>;    # copy rest of file
 
-		close PROCIF;
-	}
+        close PROCIF;
+    }
 }
 
 close $fh;
@@ -177,7 +177,7 @@ generates a backup copy, so in case of unexpected trouble you may recover.
 
 =head1 COPYRIGHT
 
-(C) 2000-2007 Mark A. Hillebrand <Mark.A.Hillebrand at gmail dot com>.
+(C) 2000-2009 Mark A. Hillebrand <Mark.A.Hillebrand at gmail dot com>.
 
 This code is released under the BSD License.
 Before using this software, visit L<http://www.opensource.org/licenses/bsd-license.php> for the full license text.
