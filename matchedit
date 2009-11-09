@@ -12,12 +12,12 @@ use Getopt::Long;
 use Pod::Usage;
 
 my %options = (
-    C => 2,
+    context => 2,
     editor => $ENV{EDITOR} || 'vim',
 );
-GetOptions(\%options, qw( C|context=i editor=s help|h|? )) or pod2usage(2);
+GetOptions(\%options, qw( context|C=i editor=s help|h|? )) or pod2usage(2);
 pod2usage(1) if $options{help};
-pod2usage "?Argument to --context must not be negative." if $options{C} < 0;
+pod2usage "?Argument to --context must not be negative." if $options{context} < 0;
 my $re = shift @ARGV or pod2usage "?Missing regular expression.";
 $re = qr/$re/o; # TODO right thing?
 @ARGV = grep { !m/\n/ or warn "!ignoring file `$_' with newline(s) in its name.\n" and 0 } @ARGV;
@@ -32,9 +32,9 @@ my $anyhit; # 1 if any hit has been seen
 sub process_hit {
     # $HIT[0] is line $first
     # $HIT[$lasthit-$first] is line $lasthit
-    # $HIT[$lasthit-$first+$options{C}$ is line $lasthit+$options{C}
-    # we have to print the lines from $first to ($lasthit+$options{C}), possibly less if at end of file
-    my $lastidx = $lasthit-$first+$options{C};
+    # $HIT[$lasthit-$first+$options{context}$ is line $lasthit+$options{context}
+    # we have to print the lines from $first to ($lasthit+$options{context}), possibly less if at end of file
+    my $lastidx = $lasthit-$first+$options{context};
     $anyhit = 1;
     $lastidx = $#HIT if $lastidx > $#HIT;
     my $last = $first+$lastidx;
@@ -65,13 +65,13 @@ while (<>) {
     }
     if( $lasthit ) {
         # running hit
-        if( $.-$lasthit > 2*$options{C} ) {
-            # we now have 2*$options{C}+1 intervening lines between last hit and current line
+        if( $.-$lasthit > 2*$options{context} ) {
+            # we now have 2*$options{context}+1 intervening lines between last hit and current line
             process_hit;
-            shift @HIT; # throw away one more, then we still have $options{C} lines of leading context
-            $first = $.-$options{C}+1;
+            shift @HIT; # throw away one more, then we still have $options{context} lines of leading context
+            $first = $.-$options{context}+1;
         }
-    } elsif( @HIT > $options{C} ) {
+    } elsif( @HIT > $options{context} ) {
         # throw one line away
         shift @HIT;
         $first++;
