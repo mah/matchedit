@@ -124,7 +124,7 @@ if( $choice eq "YES\n" ) {
             }
             last if /^FILEEND/;
         }
-		# must have read FILEEND on correct file structure
+        # must have read FILEEND on correct file structure
         print OF <PROCIF>;    # copy rest of file
 
         close PROCIF;
