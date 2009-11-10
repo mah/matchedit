@@ -56,22 +56,22 @@ while (<>) {
         $first = 1; # first line collected in @HIT will have number 1
     }
     push @HIT, $_; # collect
-    if( /$re/ ) {
+    if (/$re/) {
         $lasthit = $.;
-        unless( $fileheader ) {
+        unless ($fileheader) {
             print $fh "FILE $ARGV\n";
             $fileheader = 1;
         };
     }
-    if( $lasthit ) {
+    if ($lasthit) {
         # running hit
-        if( $.-$lasthit > 2*$options{context} ) {
+        if ($.-$lasthit > 2*$options{context}) {
             # we now have 2*$options{context}+1 intervening lines between last hit and current line
             process_hit;
             shift @HIT; # throw away one more, then we still have $options{context} lines of leading context
             $first = $.-$options{context}+1;
         }
-    } elsif( @HIT > $options{context} ) {
+    } elsif (@HIT > $options{context}) {
         # throw one line away
         shift @HIT;
         $first++;
@@ -84,41 +84,41 @@ process_hit if $lasthit;
 print $fh "FILEEND\n" if $fileheader;
 
 close $fh;
-unless( $anyhit ) {
+unless ($anyhit) {
     unlink $edits;
     die "!No matching file.\n";
 }
 
 my ($at,$mt) = ((stat($edits))[8],(stat($edits))[9]);  # save access and modification times
-system( $options{editor}, $edits )==0
+0==system $options{editor}, $edits
     or unlink $edits and die "?Executing `$options{editor} $edits' failed: $? ($!)\n";
 unlink $edits and die "Access and modification times of `$edits' unchanged, nothing to do.\n"
-    if $at==(stat($edits))[8] and $mt== (stat($edits))[9];
+    if $at==(stat($edits))[8] and $mt==(stat($edits))[9];
 
 print "Answer YES if you want the changes to take effect: ";
 my $choice = <STDIN>;
 
-if( $choice eq "YES\n" ) {
-    open( $fh, '<', $edits )
+if ($choice eq "YES\n") {
+    open $fh, '<', $edits
         or die "?Failed to reopen `$edits'\n";
-    while( <$fh> ) {
+    while (<$fh>) {
         last unless m/^FILE (.*)/;
         my $fn = $1;
-        rename( $fn, "$fn.bak" );
-        open( PROCIF, '<', "$fn.bak" );
-        open( OF, '>', $fn );
-        while( <$fh> ) {
+        rename $fn, "$fn.bak";
+        open PROCIF, '<', "$fn.bak";
+        open OF, '>', $fn;
+        while (<$fh>) {
             last unless m/^LINES (\d+)-(\d+)/;
             my $from = $1;
             my $to = $2;
             my $discard = tell PROCIF;    # to initialize $.
-            while( $. < $from - 1 ) {    # copy part before
+            while ($. < $from - 1) {    # copy part before
                 print OF scalar <PROCIF>;
             }
-            while( $. < $to ) {    # dummy read the part
+            while ($. < $to) {    # dummy read the part
                 <PROCIF>;
             }
-            while( <$fh> ) {     # paste in new lines
+            while (<$fh>) {     # paste in new lines
                 last if /^LINESEND/;
                 print OF $_;
             }
