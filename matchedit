@@ -9,6 +9,7 @@ use warnings;
 use strict;
 use File::Temp qw(tempfile);
 use Getopt::Long;
+use IO::Handle;
 use Pod::Usage;
 
 my %options = (
@@ -98,6 +99,9 @@ unlink $edits and die "Access and modification times of `$edits' unchanged, noth
 print "Answer YES if you want the changes to take effect: ";
 my $choice = <STDIN>;
 
+my $procif = new IO::Handle;
+my $of = new IO::Handle;
+
 if ($choice eq "YES\n") {
     open $fh, '<', $edits
         or die "?Failed to reopen `$edits'\n";
@@ -105,29 +109,29 @@ if ($choice eq "YES\n") {
         last unless m/^FILE (.*)/;
         my $fn = $1;
         rename $fn, "$fn.bak";
-        open PROCIF, '<', "$fn.bak";
-        open OF, '>', $fn;
+        open $procif, '<', "$fn.bak";
+        open $of, '>', $fn;
         while (<$fh>) {
             last unless m/^LINES (\d+)-(\d+)/;
             my $from = $1;
             my $to = $2;
-            my $discard = tell PROCIF;    # to initialize $.
+            my $discard = tell $procif;    # to initialize $.
             while ($. < $from - 1) {    # copy part before
-                print OF scalar <PROCIF>;
+                print $of scalar <$procif>;
             }
             while ($. < $to) {    # dummy read the part
-                <PROCIF>;
+                <$procif>;
             }
             while (<$fh>) {     # paste in new lines
                 last if /^LINESEND/;
-                print OF $_;
+                print $of $_;
             }
             last if /^FILEEND/;
         }
         # must have read FILEEND on correct file structure
-        print OF <PROCIF>;    # copy rest of file
+        print $of (<$procif>);    # copy rest of file
 
-        close PROCIF;
+        close $procif;
     }
 }
 
